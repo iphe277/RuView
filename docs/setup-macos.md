@@ -57,6 +57,38 @@ loopback-only demo.
 - Health check: `curl http://localhost:3000/health` should report
   `"source":"simulated","status":"ok"`.
 
-The dashboard shows a "SYNTHETIC DATA" banner while in this mode. For real
-sensing, flash an ESP32-S3 node (see `firmware/esp32-csi-node/README.md`) and
-run with `--source esp32`.
+The dashboard shows a "SYNTHETIC DATA" banner while in this mode.
+
+## 6. Live mode with your Mac's WiFi
+
+The server can also read your Mac's own WiFi connection through CoreWLAN
+(ADR-025). It needs a small Swift helper, `mac_wifi`, on your `PATH`:
+
+```bash
+swiftc -O archive/v1/src/sensing/mac_wifi.swift -o "$HOME/.cargo/bin/mac_wifi"
+mac_wifi --scan-once   # prints one JSON sample with rssi/noise/channel
+```
+
+Then, from `v2/`:
+
+```bash
+./target/release/sensing-server --source wifi --tick-ms 500 \
+  --http-port 3000 --ws-port 3001 --data-dir "$HOME/.ruview-data"
+```
+
+`/health` now reports `"source":"wifi:..."` and the dashboard shows "Live".
+macOS redacts the SSID/BSSID without Location Services, so the source shows as
+`wifi:unnamed`; signal strength, noise and channel are still real.
+
+Limits of this mode:
+
+- It sees one RSSI value for the connected link, not per-subcarrier CSI.
+  Expect coarse presence and motion between the Mac and the access point at
+  best.
+- Breathing, heart rate and pose are not meaningful from a single RSSI stream;
+  treat any such values in the dashboard as unvalidated.
+- The dashboard's "Data Source" card may still read "ESP32"; the Hardware card
+  and `/health` show the actual source.
+
+For real CSI sensing, flash an ESP32-S3 node (see
+`firmware/esp32-csi-node/README.md`) and run with `--source esp32`.
